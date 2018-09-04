@@ -1,0 +1,7 @@
+*.jsonl
+*.csv
+*.txt
+*.json
+*.db
+*swp
+*~
