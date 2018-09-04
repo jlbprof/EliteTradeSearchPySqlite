@@ -1,5 +1,10 @@
 #!/usr/bin/python
 
+# Author: Julian Brown
+# Original Date: Sept 04, 2018
+# License: MIT License, a copy of the license is in this repo
+#
+
 import sys
 import getopt
 import urllib
