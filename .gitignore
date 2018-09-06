@@ -3,5 +3,9 @@
 *.txt
 *.json
 *.db
+*.o
+*.bin
+calc_distances
+get_distance
 *swp
 *~

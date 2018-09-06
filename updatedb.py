@@ -170,6 +170,44 @@ def do_systems ():
     conn = do_connect ()
     c = conn.cursor ()
 
+    # one of the biggest problems with the star system database, is one of the
+    # main questions that will be asked.
+    #
+    # Get me all star systems within 150 light years from this star system.
+    # This is both a computationally and a humungous disk space problem.
+    #
+    # First there is the explosion of distance calculations, basically
+    # evertime you ask that question, there are approx 21,000 star systems
+    # so I would have to execute the distance calculation 21,000 times.
+    # As big a problem that is, it is not the biggest problem.
+    #
+    # So lets create an db that lists the distances between each star system.
+    # That calculation leads to 21,000 squared number of rows which is in
+    # excess of 441 million rows.   If there was a table with 3 simple values
+    # id1, id2, distance.  Where id1 is the id of star system 1, id2 is the
+    # 2nd star system, and distance is the distance between them.   So
+    # considering that and having at least one index means that this table
+    # alone could be over 31 gb in size, both too expensive to create and
+    # to expensive to review.   So we have to do it another way.
+    #
+    # The new way, is there will be a C program, which is the fastest way
+    # to process this calculation, and output a binary 2d array of the
+    # 441 million unsigned shorts which will represent the distances.
+    # Using an unsigned short means the distance will be between 0 and
+    # 65535 light years.   Well rarely will anyone select over 500 ly so
+    # that is sufficient and also means that 1 byte would be insufficient
+    # (0-255).
+    #
+    # system_master_list.csv is the list of each index, id, x, y, and z of
+    # each system which the C program will use to prepare that array.
+    #
+    # c program is calc_distance, and creates a file called
+    # distance_matrix.bin that is just under 1 gb
+    #
+
+    fo = open ("system_master_list.csv", 'w')
+    idx = 0
+
     try:
 	# Note, using begin and commit, allows the insertions go much
 	# faster
@@ -183,9 +221,12 @@ def do_systems ():
             if json_data["needs_permit"] == "true":
                 needs_permit = 1
             print "name :" + json_data["name"]
+            mystr = str(idx) + "," + str(json_data["id"]) + "," + str(json_data["x"]) + "," + str(json_data["y"]) + "," + str(json_data["z"]) + "\n"
+            fo.write (mystr)
+            idx = idx + 1
             c.execute (
-                'INSERT INTO Systems ("id", "edsm_id", "name", "x", "y", "z", "needs_permit") VALUES(?, ?, ?, ?, ?, ?, ?);',
-                (json_data["id"], json_data["edsm_id"], json_data["name"], json_data["x"], json_data["y"], json_data["z"], needs_permit))
+                'INSERT INTO Systems ("index", "id", "edsm_id", "name", "x", "y", "z", "needs_permit") VALUES(?, ?, ?, ?, ?, ?, ?, ?);',
+                (idx, json_data["id"], json_data["edsm_id"], json_data["name"], json_data["x"], json_data["y"], json_data["z"], needs_permit))
         c.execute ("COMMIT")
         print "Done"
     except Exception as e:
@@ -193,6 +234,20 @@ def do_systems ():
         print e
         c.execute ("ROLLBACK")
         sys.exit (1)
+
+    fo.close ()
+
+    # max_count.txt is the maximum size of the array of systems
+
+    fo = open ("max_count.txt", "w")
+    fo.write (str(idx))
+    fo.close ()
+
+    # now run the external c program
+
+    print "Calling calc_distances"
+    os.system ("./calc_distances");
+    print "returned from calc_distances"
 
 # download the stations (where ships can land) file
 # insert the stations into the db
@@ -324,26 +379,7 @@ def process_args (argv):
 # I keep the schema as the result of a routine
 # so it is easy to insert into the db
 def getSchema ():
-    schema = """CREATE TABLE `Systems` (
-    `id`    INTEGER NOT NULL,
-    `edsm_id`    INTEGER NOT NULL,
-    `name`    TEXT NOT NULL,
-    `x`    REAL NOT NULL,
-    `y`    REAL NOT NULL,
-    `z`    REAL NOT NULL,
-    `needs_permit`    INTEGER NOT NULL,
-    PRIMARY KEY(`id`)
-);
-CREATE INDEX `systems_id` ON `Systems` (
-    `id`
-);
-CREATE INDEX `systems_edsm_id` ON `Systems` (
-    `edsm_id`
-);
-CREATE INDEX `systems_name` ON `Systems` (
-    `name`
-);
-CREATE TABLE `stations` (
+    schema = """CREATE TABLE `stations` (
     `id`    INTEGER NOT NULL,
     `name`    TEXT NOT NULL,
     `system_id`    INTEGER NOT NULL,
@@ -358,9 +394,6 @@ CREATE INDEX `stations_id` ON `stations` (
 );
 CREATE INDEX `stations_system_id` ON `stations` (
     `system_id`
-);
-CREATE INDEX `stations_name` ON `Systems` (
-    `name`
 );
 CREATE TABLE `commodities` (
     `id`    INTEGER NOT NULL,
@@ -395,6 +428,34 @@ CREATE INDEX `prices_commodity_id` ON `prices` (
 CREATE INDEX `prices_id` ON `prices` (
     `id`,
     `commodity_id`
+);
+CREATE TABLE IF NOT EXISTS "Systems" (
+	`id`	INTEGER NOT NULL,
+	`edsm_id`	INTEGER NOT NULL,
+	`index`	INTEGER NOT NULL DEFAULT 0,
+	`name`	TEXT NOT NULL,
+	`x`	REAL NOT NULL,
+	`y`	REAL NOT NULL,
+	`z`	REAL NOT NULL,
+	`needs_permit`	INTEGER NOT NULL,
+	PRIMARY KEY(`id`)
+);
+CREATE INDEX `systems_name` ON `Systems` (
+	`name`
+);
+CREATE INDEX `systems_edsm_id` ON `Systems` (
+	`edsm_id`
+);
+CREATE INDEX `stations_name` ON `Systems` (
+	`name`
+);
+CREATE INDEX `systems_index_id` ON `Systems` (
+	`index`,
+    `id`
+);
+CREATE INDEX `systems_id` ON `Systems` (
+	`id`,
+	`index`
 );"""
 
     return schema
