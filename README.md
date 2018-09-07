@@ -45,7 +45,8 @@ Python script(s) to maintain and work with a SQLite DB of Elite Dangerous inform
          "id" : 16
       },
       "name" : "Gene Bank"
-   },```
+   },
+```
 
    From the commodities file we are mostly interested in just the name and
    id, the id is used as a foreign key in the db.
