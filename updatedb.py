@@ -225,7 +225,7 @@ def do_systems ():
             fo.write (mystr)
             idx = idx + 1
             c.execute (
-                'INSERT INTO Systems ("index", "id", "edsm_id", "name", "x", "y", "z", "needs_permit") VALUES(?, ?, ?, ?, ?, ?, ?, ?);',
+                'INSERT INTO Systems ("idx", "id", "edsm_id", "name", "x", "y", "z", "needs_permit") VALUES(?, ?, ?, ?, ?, ?, ?, ?);',
                 (idx, json_data["id"], json_data["edsm_id"], json_data["name"], json_data["x"], json_data["y"], json_data["z"], needs_permit))
         c.execute ("COMMIT")
         print "Done"
@@ -432,7 +432,7 @@ CREATE INDEX `prices_id` ON `prices` (
 CREATE TABLE IF NOT EXISTS "Systems" (
 	`id`	INTEGER NOT NULL,
 	`edsm_id`	INTEGER NOT NULL,
-	`index`	INTEGER NOT NULL DEFAULT 0,
+	`idx`	INTEGER NOT NULL DEFAULT 0,
 	`name`	TEXT NOT NULL,
 	`x`	REAL NOT NULL,
 	`y`	REAL NOT NULL,
@@ -450,12 +450,12 @@ CREATE INDEX `stations_name` ON `Systems` (
 	`name`
 );
 CREATE INDEX `systems_index_id` ON `Systems` (
-	`index`,
+	`idx`,
     `id`
 );
 CREATE INDEX `systems_id` ON `Systems` (
 	`id`,
-	`index`
+	`idx`
 );"""
 
     return schema
